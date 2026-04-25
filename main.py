@@ -1,73 +1,57 @@
-import os
-import logging
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from yt_dlp import YoutubeDL
 
-# --- SOZLAMALAR ---
-# DIQQAT: Pastdagi ma'lumotlarni o'zingniki bilan almashtir!
-API_TOKEN = 'TOKENINGNI_SHUYERGA_YOZ' 
-CHANNEL_ID = '@KANALINGNI_YOZ' 
-ADMIN_USER = '@USERNAMINGNI_YOZ' 
+ import logging
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# ASOSIY MA'LUMOTLAR
+API_TOKEN = '8690723618:AAH0rdjT7t96JELflhipuL0Xa54J1QKqphI'
+MY_CARD = '5614683514401090'
+OWNER_NAME = 'Nurdiyor Fayzullayev'
+MY_USERNAME = 'Nurdiyor_0107'
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# --- TUGMALAR ---
-glavny_menu = ReplyKeyboardMarkup(resize_keyboard=True)
-glavny_menu.add(KeyboardButton("📥 Video yuklash"), KeyboardButton("🎓 Talaba bo'limi"))
-
-student_menu = ReplyKeyboardMarkup(resize_keyboard=True)
-student_menu.add("💻 Slayd tayyorlash", "📚 Referat yozish")
-student_menu.add("📝 Kurs ishi", "⬅️ Orqaga")
-
-# --- FUNKSIYALAR ---
-async def check_sub(user_id):
-    try:
-        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
-        return member.status != 'left'
-    except: return True
-
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
-    await message.answer(f"Xush kelibsiz!\n\nBotdan foydalanish uchun {CHANNEL_ID} kanaliga a'zo bo'ling.", reply_markup=glavny_menu)
+async def send_welcome(message: types.Message):
+    markup = InlineKeyboardMarkup(row_width=2)
+    btn_music = InlineKeyboardButton("🎵 Musiqa/Video yuklash", callback_data='music')
+    btn_orders = InlineKeyboardButton("💻 Slayd & Referat", callback_data='orders')
+    markup.add(btn_music, btn_orders)
+    
+    welcome_text = (
+        f"Salom, {message.from_user.first_name}! 👋\n\n"
+        "Bu bot orqali musiqa yuklashingiz yoki sifatli slaydlar buyurtma qilishingiz mumkin.\n\n"
+        "Kerakli bo'limni tanlang 👇"
+    )
+    await message.answer(welcome_text, reply_markup=markup)
 
-@dp.message_handler(lambda m: m.text == "🎓 Talaba bo'limi")
-async def student(message: types.Message):
-    await message.answer("Xizmatni tanlang:", reply_markup=student_menu)
+@dp.callback_query_handler(lambda c: c.data == 'orders')
+async def show_prices(callback_query: types.CallbackQuery):
+    price_text = (
+        "💰 **Xizmatlarimiz narxi:**\n\n"
+        "💻 1 ta slayd — 2 000 so'm\n"
+        "📝 Referat — 10 000 so'mdan\n"
+        "📑 Kurs ishi — Kelishilgan narxda\n\n"
+        "🎁 **BONUS:** Birinchi buyurtmangizda 1 ta slayd tekin!\n\n"
+        f"💳 **To'lov uchun karta:** `{MY_CARD}`\n"
+        f"👤 **Eshik egasi:** {OWNER_NAME}\n\n"
+        f"Buyurtma berish uchun adminga yozing: @{MY_USERNAME}\n"
+        "*(To'lov qilgach, chekni rasmga olib yuboring!)*"
+    )
+    await bot.send_message(callback_query.from_user.id, price_text, parse_mode='Markdown')
 
-@dp.message_handler(lambda m: m.text == "⬅️ Orqaga")
-async def back(message: types.Message):
-    await message.answer("Asosiy menyu:", reply_markup=glavny_menu)
-
-@dp.message_handler(lambda m: m.text in ["💻 Slayd tayyorlash", "📚 Referat yozish", "📝 Kurs ishi"])
-async def services(message: types.Message):
-    await message.answer(f"Siz {message.text} bo'limini tanladingiz.\n\nBuyurtma berish uchun adminga yozing: {ADMIN_USER}")
+@dp.callback_query_handler(lambda c: c.data == 'music')
+async def music_info(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id, "Musiqa yoki Video yuklash uchun YouTube/Instagram linkini yuboring... 📥")
 
 @dp.message_handler()
-async def download(message: types.Message):
-    if not await check_sub(message.from_user.id):
-        await message.answer(f"Avval kanalga a'zo bo'ling: {CHANNEL_ID}")
-        return
-
-    url = message.text
-    if any(x in url for x in ["instagram.com", "tiktok.com", "youtube.com", "youtu.be"]):
-        msg = await message.answer("🚀 Video tahlil qilinmoqda...")
-        try:
-            ydl_opts = {'format': 'best', 'outtmpl': 'v.mp4', 'max_filesize': 45*1024*1024}
-            with YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            with open('v.mp4', 'rb') as video:
-                await bot.send_video(message.chat.id, video, caption="✅ Yuklab olindi!")
-            os.remove('v.mp4')
-            await msg.delete()
-        except:
-            await msg.edit_text("❌ Xato! Link noto'g'ri yoki video juda katta.")
+async def handle_all(message: types.Message):
+    if 'http' in message.text:
+        await message.answer("Sizning so'rovingiz qabul qilindi. Tez orada yuklab beriladi... ⏳")
     else:
-        if message.text != "📥 Video yuklash":
-            await message.answer("Iltimos, video linkini yuboring.")
+        await message.answer("Iltimos, pastdagi menyudan foydalaning yoki link yuboring.")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
