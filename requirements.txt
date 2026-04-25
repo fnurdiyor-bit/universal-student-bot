@@ -1,8 +1,5 @@
-aiohttp==3.8.6
 aiogram==2.25.1
+yt-dlp
 
-pip
-setuptools
-wheelaiohttp==3.8.6
 
 
